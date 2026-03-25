@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <title>اختبار اضطرابات الايض العملي</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="timer" style="display:none;">10:00</div>
+
+    <div id="quiz-container">
+        <div id="login">
+            <h2 style="text-align: center;">اختبار اضطرابات الايض العملي</h2>
+            <div class="quiz-info">
+                <p>⏱ مدة الامتحان: 10 دقائق</p>
+                <p>📝 عدد الاسئلة: 20 سؤال (0.5 درجة لكل سؤال)</p>
+            </div>
+            <input type="text" id="name" placeholder="الاسم الكامل بالعربية">
+            <input type="text" id="group" placeholder="الشعبة">
+            <button class="start-btn" onclick="startQuiz()">بدء الاختبار</button>
+        </div>
+
+        <div id="quiz" style="display:none;">
+            <h2 id="qText" style="direction: ltr; text-align: left;"></h2>
+            <div id="options" style="direction: ltr;"></div>
+            <button onclick="confirmEnd()" style="background:#dc3545; color:white; border:none; padding:10px; margin-top:20px; border-radius:8px; cursor:pointer; width:100%;">إنهاء وتسليم الإجابات</button>
+        </div>
+
+        <div id="result-screen" style="display:none; text-align: center;">
+            <h2 id="res-message">جاري الحفظ...</h2>
+            <p>درجتك النهائية:</p>
+            <h1 id="score-display" style="font-size: 60px; color: #28a745;"></h1>
+            <p id="save-status"></p>
+        </div>
+    </div>
+
+    <script src="questions.js"></script>
+    <script>
+        let currentQ = 0, correctCount = 0, timeLeft = 600, timerInterval;
+        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbw1_O5u-WooBsRSfQpwAK7nZSP78tpShNk5tUnCHYA5ByULvRpsx7BNWbjt05w4Lubd/exec"; 
+
+        function startQuiz() {
+            const name = document.getElementById('name').value;
+            const group = document.getElementById('group').value;
+            if(!name || !group) { alert("يرجى إكمال البيانات"); return; }
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('quiz').style.display = 'block';
+            document.getElementById('timer').style.display = 'block';
+            startTimer(); showQuestion();
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                let m = Math.floor(timeLeft / 60), s = timeLeft % 60;
+                document.getElementById('timer').innerText = (m<10?"0"+m:m)+":"+(s<10?"0"+s:s);
+                if (timeLeft <= 120) document.getElementById('timer').style.backgroundColor = "#ff0000";
+                if (timeLeft <= 0) { clearInterval(timerInterval); finishQuiz(); }
+                timeLeft--;
+            }, 1000);
+        }
+
+        function showQuestion() {
+            const qData = questions[currentQ];
+            document.getElementById('qText').innerText = `Q${currentQ + 1}: ${qData.q}`;
+            const optDiv = document.getElementById('options');
+            optDiv.innerHTML = '';
+
+            // --- منطق خلط الخيارات ---
+            let mappedOptions = qData.o.map((text, index) => ({ text, isCorrect: index === qData.a }));
+            mappedOptions.sort(() => Math.random() - 0.5); 
+            // ------------------------
+
+            mappedOptions.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'opt-btn';
+                btn.innerText = opt.text;
+                btn.onclick = () => { 
+                    if(opt.isCorrect) correctCount++; 
+                    currentQ++; 
+                    if(currentQ < questions.length) showQuestion(); else finishQuiz(); 
+                };
+                optDiv.appendChild(btn);
+            });
+        }
+
+        function confirmEnd() { if(confirm("هل تريد التسليم الآن؟")) finishQuiz(); }
+
+        function finishQuiz() {
+            clearInterval(timerInterval);
+            document.getElementById('quiz').style.display = 'none';
+            document.getElementById('timer').style.display = 'none';
+            document.getElementById('result-screen').style.display = 'block';
+            let score = correctCount * 0.5;
+            document.getElementById('score-display').innerText = score + " / 10";
+            sendData(document.getElementById('name').value, document.getElementById('group').value, score);
+        }
+
+        function sendData(name, group, score) {
+            fetch(GOOGLE_SHEET_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({name, group, score}) })
+            .then(() => { 
+                document.getElementById('res-message').innerText = "تم التسليم";
+                document.getElementById('save-status').innerText = "✅ تم حفظ درجتك بنجاح.";
+            });
+        }
+    </script>
+</body>
+</html>
