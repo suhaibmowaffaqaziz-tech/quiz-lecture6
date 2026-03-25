@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <title>?????? ???????? ????? ??????</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="timer" style="display:none;">10:00</div>
+
+    <div id="quiz-container">
+        <div id="login">
+            <h2 style="text-align: center;">?????? ???????? ????? ??????</h2>
+            <div class="quiz-info">
+                <p>? ??? ????????: 10 ?????</p>
+                <p>?? ??? ???????: 20 ???? (0.5 ???? ??? ????)</p>
+            </div>
+            <input type="text" id="name" placeholder="????? ?????? ????????">
+            <input type="text" id="group" placeholder="??????">
+            <button class="start-btn" onclick="startQuiz()">??? ????????</button>
+        </div>
+
+        <div id="quiz" style="display:none;">
+            <h2 id="qText" style="direction: ltr; text-align: left;"></h2>
+            <div id="options" style="direction: ltr;"></div>
+            <button onclick="confirmEnd()" style="background:#dc3545; color:white; border:none; padding:10px; margin-top:20px; border-radius:8px; cursor:pointer; width:100%;">????? ?????? ????????</button>
+        </div>
+
+        <div id="result-screen" style="display:none; text-align: center;">
+            <h2 id="res-message">???? ?????...</h2>
+            <p>????? ????????:</p>
+            <h1 id="score-display" style="font-size: 60px; color: #28a745;"></h1>
+            <p id="save-status"></p>
+        </div>
+    </div>
+
+    <script src="questions.js"></script>
+    <script>
+        let currentQ = 0, correctCount = 0, timeLeft = 600, timerInterval;
+        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbw1_O5u-WooBsRSfQpwAK7nZSP78tpShNk5tUnCHYA5ByULvRpsx7BNWbjt05w4Lubd/exec"; 
+
+        function startQuiz() {
+            const name = document.getElementById('name').value;
+            const group = document.getElementById('group').value;
+            if(!name || !group) { alert("???? ????? ????????"); return; }
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('quiz').style.display = 'block';
+            document.getElementById('timer').style.display = 'block';
+            startTimer(); showQuestion();
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                let m = Math.floor(timeLeft / 60), s = timeLeft % 60;
+                document.getElementById('timer').innerText = (m<10?"0"+m:m)+":"+(s<10?"0"+s:s);
+                if (timeLeft <= 120) document.getElementById('timer').style.backgroundColor = "#ff0000";
+                if (timeLeft <= 0) { clearInterval(timerInterval); finishQuiz(); }
+                timeLeft--;
+            }, 1000);
+        }
+
+        function showQuestion() {
+            if (typeof questions === 'undefined') {
+                alert("???: ??? ??????? ?? ??? ?????? ???? ????.");
+                return;
+            }
+            const qData = questions[currentQ];
+            document.getElementById('qText').innerText = `Q${currentQ + 1}: ${qData.q}`;
+            const optDiv = document.getElementById('options');
+            optDiv.innerHTML = '';
+
+            qData.o.forEach((text, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'opt-btn';
+                btn.innerText = text;
+                btn.onclick = () => { 
+                    if(index === qData.a) correctCount++; 
+                    currentQ++; 
+                    if(currentQ < questions.length) showQuestion(); else finishQuiz(); 
+                };
+                optDiv.appendChild(btn);
+            });
+        }
+
+        function confirmEnd() { if(confirm("?? ???? ??????? ?????")) finishQuiz(); }
+
+        function finishQuiz() {
+            clearInterval(timerInterval);
+            document.getElementById('quiz').style.display = 'none';
+            document.getElementById('timer').style.display = 'none';
+            document.getElementById('result-screen').style.display = 'block';
+            let score = correctCount * 0.5;
+            document.getElementById('score-display').innerText = score + " / 10";
+            sendData(document.getElementById('name').value, document.getElementById('group').value, score);
+        }
+
+        function sendData(name, group, score) {
+            fetch(GOOGLE_SHEET_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({name, group, score}) })
+            .then(() => { 
+                document.getElementById('res-message').innerText = "?? ???????";
+                document.getElementById('save-status').innerText = "? ?? ??? ????? ?????.";
+            });
+        }
+    </script>
+</body>
+</html>
